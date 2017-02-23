@@ -23,8 +23,8 @@ done
 # Current array assignment.
 # I could pull the automatically from /var/local/emhttp/disks.ini
 # Parsing it wouldnt be that easy though.
-DISK_ARRAY=( sdb sdc sdd sde )
-DESCRIPTION=( disk1 disk2 disk3 disk4 )
+DISK_ARRAY=( sdc sdb sdd sde )
+DESCRIPTION=( parity disk1 disk2 disk3 )
 #
 # Added -n standby to the check so smartctl is not spinning up my drives
 #

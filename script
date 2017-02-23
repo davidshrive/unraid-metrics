@@ -1,0 +1,66 @@
+#
+# Set Vars
+#
+DBURL=http://192.168.1.110:8086
+DBNAME=telegraf
+DEVICE="UNRAID"
+CURDATE=`date +%s`
+
+# HD Space
+
+# Gets the stats for boot, disk#, cache, user
+#
+df | grep "mnt/\|/boot\|docker" | grep -v "user0\|containers" | sed 's/\/mnt\///g' | sed 's/%//g' | sed 's/\/var\/lib\///g'| sed 's/\///g' | while read MOUNT TOTAL USED FREE UTILIZATION DISK
+do
+	if [ "${DISK}" = "user" ]; then
+		DISK="array_total"
+	fi
+	curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "diskSpaceStats,Device=${DEVICE},Drive=${DISK} Free=${FREE},Used=${USED},Utilization=${UTILIZATION} ${CURDATE}000000000" >/dev/null 2>&1	
+done
+
+# HD Temp and Status
+
+# Current array assignment.
+# I could pull the automatically from /var/local/emhttp/disks.ini
+# Parsing it wouldnt be that easy though.
+DISK_ARRAY=( sdb sdc sdd sde )
+DESCRIPTION=( disk1 disk2 disk3 disk4 )
+#
+# Added -n standby to the check so smartctl is not spinning up my drives
+#
+i=0
+for DISK in "${DISK_ARRAY[@]}"
+do
+	smartctl -n standby -A /dev/$DISK | grep "Temperature_Celsius" | awk '{print $10}' | while read TEMP 
+	do
+		curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "diskTempStats,DEVICE=${DEVICE},DISK=${DESCRIPTION[$i]} Temperature=${TEMP} ${CURDATE}000000000" >/dev/null 2>&1
+	done
+	((i++))
+done
+i=0
+for DISK in "${DISK_ARRAY[@]}"
+do
+	hdparm -C /dev/$DISK | grep 'state' | awk '{print $4}' | while read STATUS
+	do
+		#echo ${DISK} : ${STATUS} : ${DESCRIPTION[$i]}
+		if [ ${STATUS} = "standby" ]
+		then
+			curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "diskStatus,DEVICE=${DEVICE},DISK=${DESCRIPTION[$i]} Active=0 ${CURDATE}000000000" >/dev/null 2>&1
+		else
+			curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "diskStatus,DEVICE=${DEVICE},DISK=${DESCRIPTION[$i]} Active=1 ${CURDATE}000000000" >/dev/null 2>&1
+		fi
+	done
+	((i++))
+done
+
+# # CPU and Motherboard Temperatures
+
+# TEMP=( CPU MB ) 
+
+# for TYPE in "${TEMP[@]}"
+# do
+# 	sensors | grep $TYPE | awk '{print $3}' | tr -dc '0-9.' | while read CURTEMP
+# 	do
+# 	echo $CURTEMP
+# 	curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "tempStats,DEVICE=${DEVICE},TYPE=${TYPE} Temperature=${CURTEMP} ${CURDATE}000000000" >/dev/null 2>&1
+# done

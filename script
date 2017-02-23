@@ -53,14 +53,12 @@ do
 	((i++))
 done
 
-# # CPU and Motherboard Temperatures
+# CPU and Motherboard Temperatures
 
-# TEMP=( CPU MB ) 
+TEMP=( CPU MB ) 
 
-# for TYPE in "${TEMP[@]}"
-# do
-# 	sensors | grep $TYPE | awk '{print $3}' | tr -dc '0-9.' | while read CURTEMP
-# 	do
-# 	echo $CURTEMP
-# 	curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "tempStats,DEVICE=${DEVICE},TYPE=${TYPE} Temperature=${CURTEMP} ${CURDATE}000000000" >/dev/null 2>&1
-# done
+for TYPE in "${TEMP[@]}"
+do
+	CURTEMP=`sensors | grep $TYPE | awk '{print $3}' | tr -dc '0-9.'`
+	curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "tempStats,DEVICE=${DEVICE},TYPE=${TYPE} Temperature=${CURTEMP} ${CURDATE}000000000" >/dev/null 2>&1
+done

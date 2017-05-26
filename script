@@ -62,3 +62,12 @@ do
 	CURTEMP=`sensors | grep $TYPE | awk '{print $3}' | tr -dc '0-9.'`
 	curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "tempStats,DEVICE=${DEVICE},TYPE=${TYPE} Temperature=${CURTEMP} ${CURDATE}000000000" >/dev/null 2>&1
 done
+
+# Share Space
+
+SHARES=( appdata Backup domains downloads isos private shared system )
+for SHARE in "${SHARES[@]}"
+do
+	SIZE=`du -s /mnt/user/$SHARE/ | awk '{print $1}'`
+	curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "shareSize,DEVICE=${DEVICE},SHARE=${SHARE} Size=${SIZE} ${CURDATE}000000000" >/dev/null 2>&1
+done

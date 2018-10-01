@@ -1,7 +1,7 @@
 #
 # Set Vars
 #
-DBURL=http://192.168.1.110:8086
+DBURL=http://192.168.0.110:8086
 DBNAME=telegraf
 DEVICE="UNRAID"
 CURDATE=`date +%s`
@@ -23,11 +23,12 @@ done
 # Current array assignment.
 # I could pull the automatically from /var/local/emhttp/disks.ini
 # Parsing it wouldnt be that easy though.
-DISK_ARRAY=( sdg sde sdi sdk )
-DESCRIPTION=( rey-parity bb8-disk1 tie-fighter-disk2 x-wing-disk3 )
 #
 # Added -n standby to the check so smartctl is not spinning up my drives
 #
+# Directly connected
+DISK_ARRAY=( sdc sdb sdd sde )
+DESCRIPTION=( rey-parity bb8-disk1 tie-fighter-disk2 x-wing-disk3 )
 i=0
 for DISK in "${DISK_ARRAY[@]}"
 do
@@ -37,18 +38,15 @@ do
 	done
 	((i++))
 done
+
+# 3ware controller connected
+DESCRIPTION=(  tbc-cache1 tbc-cache2 tbc-disk12 tbc-disk13 kylo-disk11 star-destroyer-disk5 speeder-disk6 phasma-disk10 stormtrooper-disk4 finn-disk9 poe-disk7 chewie-disk8 )
 i=0
-for DISK in "${DISK_ARRAY[@]}"
+for DESCRIPTION in "${DESCRIPTION[@]}"
 do
-	hdparm -C /dev/$DISK | grep 'state' | awk '{print $4}' | while read STATUS
+	smartctl -n standby -a /dev/twa0 -d 3ware,$i | grep "Temperature_Celsius" | awk '{print $10}' | head -1 | while read TEMP 
 	do
-		#echo ${DISK} : ${STATUS} : ${DESCRIPTION[$i]}
-		if [ ${STATUS} = "standby" ]
-		then
-			curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "diskStatus,DEVICE=${DEVICE},DISK=${DESCRIPTION[$i]} Active=0 ${CURDATE}000000000" >/dev/null 2>&1
-		else
-			curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "diskStatus,DEVICE=${DEVICE},DISK=${DESCRIPTION[$i]} Active=1 ${CURDATE}000000000" >/dev/null 2>&1
-		fi
+		curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "diskTempStats,DEVICE=${DEVICE},DISK=${DESCRIPTION} Temperature=${TEMP} ${CURDATE}000000000" >/dev/null 2>&1
 	done
 	((i++))
 done
@@ -65,9 +63,13 @@ done
 
 # Share Space
 
-SHARES=( appdata Backup domains downloads isos private shared system )
+SHARES=( appdata backup cameras downloads isos private shared system virtual-machines )
 for SHARE in "${SHARES[@]}"
 do
+	TIME=$(date +"%T")
+	echo $TIME
+	echo Checking size of share: $SHARE
 	SIZE=`du -s /mnt/user/$SHARE/ | awk '{print $1}'`
+	echo ${SIZE}
 	curl -is -XPOST "$DBURL/write?db=$DBNAME" --data-binary "shareSize,DEVICE=${DEVICE},SHARE=${SHARE} Size=${SIZE} ${CURDATE}000000000" >/dev/null 2>&1
 done
